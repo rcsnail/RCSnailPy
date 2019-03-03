@@ -1,4 +1,4 @@
-# PyRCSnail
+# RCSnailPy
 Python wrapper for RCSnail API
 
 ## Python virtual environment with pip3
