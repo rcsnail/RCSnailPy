@@ -20,4 +20,4 @@ or
 
 ## Install dependencies
     sudo apt install libavdevice-dev libavfilter-dev libopus-dev libvpx-dev pkg-config python3-opencv
-    pip3 install aiohttp aiortc opencv-python websockets
+    pip3 install aiohttp aiortc opencv-python websockets FirebaseData pyrebase 

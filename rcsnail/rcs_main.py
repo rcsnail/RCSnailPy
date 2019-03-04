@@ -1,9 +1,11 @@
 import asyncio
 import aiohttp
+import json
 
 import pyrebase
 
 from firebasedata import LiveData
+from .rcs_livesession import RCSLiveSession
 
 DEFAULT_BASE_URL = "https://api.rcsnail.com/v1/"
 FIREBASE_CONFIG = {
@@ -44,13 +46,17 @@ class RCSnail(object):
         # Get a reference to the database service
         self.__db = self.__firebase.database()
 
-    async def queue(self) -> str:
+    async def enqueue(self) -> RCSLiveSession:
         """
         Adding client to the queue to wait for the car becoming available. Returns live session object.
         """
         headers = {"Authorization": "Bearer " + self.__user['idToken']}
-        session = await aiohttp.ClientSession(headers = headers)
-        r = await session.get(DEFAULT_BASE_URL + "queue")
-        # return r
+        session = aiohttp.ClientSession(headers = headers)
+        data = json.loads('{"track":"Spark"}')
+        r = await session.post(DEFAULT_BASE_URL + "queue", data = data)
         json_body = await r.json()
-        return json_body
+        if 'liveUrl' in json_body:
+            liveSession = RCSLiveSession(rcs = self, liveUrl = json_body['liveUrl'])
+            return liveSession
+        else:
+            raise Exception(json.dumps(json_body))
