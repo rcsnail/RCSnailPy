@@ -89,6 +89,10 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+rcsnail-env/
+
+# VSCode
+.vscode
 
 # Spyder project settings
 .spyderproject
