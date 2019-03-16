@@ -9,12 +9,12 @@ from .rcs_livesession import RCSLiveSession
 
 DEFAULT_BASE_URL = "https://api.rcsnail.com/v1/"
 FIREBASE_CONFIG = {
-    "apiKey": "AIzaSyBYUu8CpzeRDs8I6_-ME8YkCJOI07YVSXk",
-    "authDomain": "rcsnail-620e0.firebaseapp.com",
-    "databaseURL": "https://rcsnail-620e0.firebaseio.com",
-    "projectId": "rcsnail-620e0",
-    "storageBucket": "rcsnail-620e0.appspot.com",
-    "messagingSenderId": "1004648222667"
+    "apiKey": "AIzaSyD1vHD9TzuDwnvrFfHnL2g6KNgHvmnjShM",
+    "authDomain": "rcsnail-api.firebaseapp.com",
+    "databaseURL": "https://rcsnail-api.firebaseio.com",
+    "projectId": "rcsnail-api",
+    "storageBucket": "rcsnail-api.appspot.com",
+    "messagingSenderId": "485865779952"    
 }
 
 class RCSnail(object):
