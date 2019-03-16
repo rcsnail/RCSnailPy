@@ -16,3 +16,25 @@ Run the code:
 
     $ python manual-drive.py
 
+Add username and password to env variables:
+
+    RCS_USERNAME
+    RCS_PASSWORD
+
+or in VSCode to launch.json "configurations":
+
+        {
+            "name": "Python: Current File",
+            "type": "python",
+            "request": "launch",
+            "env": {"RCS_USERNAME":"test@test.ee", "RCS_PASSWORD":"password"},
+            "program": "${file}"
+        },
+        {
+            "name": "Python: Manual Drive",
+            "type": "python",
+            "request": "launch",
+            "env": {"RCS_USERNAME":"test@test.ee", "RCS_PASSWORD":"password"},
+            "program": "${workspaceFolder}/examples/manual-drive/manual-drive.py"
+        },        
+    
