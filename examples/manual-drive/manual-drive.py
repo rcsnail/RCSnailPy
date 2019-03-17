@@ -181,7 +181,7 @@ async def render(screen, car):
 
 
 def main():
-    print('RCSnail demo')
+    print('RCSnail manual drive demo')
     username = os.getenv('RCS_USERNAME', '')
     password = os.getenv('RCS_PASSWORD', '')
     if username == '':
