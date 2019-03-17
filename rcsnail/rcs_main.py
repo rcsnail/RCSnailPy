@@ -22,7 +22,11 @@ class RCSnail(object):
     This is RCSnail main class
     """
 
-    def __init__(self, login_or_token=None, password=None):
+    def __init__(self):
+        self.__firebase = pyrebase.initialize_app(FIREBASE_CONFIG)
+
+
+    def sign_in_with_email_and_password(self, login_or_token=None, password=None):
         """
         :param login_or_token: string
         :param password: string
@@ -30,16 +34,15 @@ class RCSnail(object):
 
         assert login_or_token is None or isinstance(login_or_token, str), login_or_token
         assert password is None or isinstance(password, str), password
-        self.__firebase = pyrebase.initialize_app(FIREBASE_CONFIG)
         # Get a reference to the auth service
-        auth = self.__firebase.auth()
+        self.__auth = self.__firebase.auth()
 
         # Log the user in
         if password != "":
-            self.__user = auth.sign_in_with_email_and_password(login_or_token, password)
+            self.__user = self.__auth.sign_in_with_email_and_password(login_or_token, password)
         elif login_or_token != "":
             # Log in with token
-            self.__user = auth.sign_in_with_custom_token(login_or_token)
+            self.__user = self.__auth.sign_in_with_custom_token(login_or_token)
         else:
             raise "User name and password missing"
 
