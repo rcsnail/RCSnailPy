@@ -1,22 +1,29 @@
 # RCSnail API manual drive example
 
 This example shows how to use RCSnail API to login, queue and drive manually the remote RC car video video feed.
+Pygame + asyncio code is based on example from https://github.com/AlexElvers/pygame-with-asyncio
 
 ## Python virtual environment with pip3
     sudo apt-get install python3-venv
 
 ### Create virtual environment
-    python3 -m venv rcsnail-env
+    python3 -m venv .venv
 
-Install the required packages:
+### Activate the virtua environment
+    source .venv/bin/activate
 
-    $ pip install rcsnailpy
+### To deactivate
+    deactivate
     
-Run the code:
+### Install the required packages:
+
+    pip install rcsnailpy pygame
+    
+## Run the code:
 
     $ python manual-drive.py
 
-Add username and password to env variables:
+### Add username and password to env variables:
 
     RCS_USERNAME
     RCS_PASSWORD
