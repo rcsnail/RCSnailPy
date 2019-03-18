@@ -4,13 +4,16 @@ from getpass import getpass
 from rcsnail import RCSnail, RCSLiveSession
 import time
 import pygame
+from av import VideoFrame
 
 FPS = 30
 window_width = 960
 window_height = 480
 black = (0, 0, 0)
-green = (0, 255, 0)
 red = (255, 0, 0)
+green = (0, 255, 0)
+blue = (0, 0, 255)
+latest_frame = None
 
 class Car:
     def __init__(self):
@@ -170,15 +173,30 @@ async def handle_pygame_events(event_queue, car):
 
 
 async def render(screen, car):
+    global latest_frame
     current_time = 0
+    ovl = pygame.Overlay(pygame.YV12_OVERLAY, (640, 480))
+    # ovl.set_location(pygame.Rect(0, 0, window_width, window_height))
     while True:
         last_time, current_time = current_time, time.time()
         await asyncio.sleep(1 / FPS - (current_time - last_time))  # tick
         car.update((current_time - last_time) / 1.0)
-        screen.fill(black)
-        car.draw(screen)
-        pygame.display.flip()
+        if isinstance(latest_frame, VideoFrame):
+            ovl.display((latest_frame.planes[0], latest_frame.planes[1], latest_frame.planes[2]))    
+            #screen.fill(blue)
+            #VideoFrame(latest_fram).to_rgb()
+        else:
+            screen.fill(black)
+            car.draw(screen)
+            pygame.display.flip()
     asyncio.get_event_loop().stop()
+
+
+def handle_new_frame(frame):
+    global latest_frame
+    #if isinstance(latest_frame, VideoFrame):
+    #    VideoFrame(latest_frame).
+    latest_frame = frame
 
 
 def main():
@@ -205,7 +223,7 @@ def main():
     pygame_task = loop.run_in_executor(None, pygame_event_loop, loop, pygame_event_queue)
     render_task = asyncio.ensure_future(render(screen, car))
     event_task = asyncio.ensure_future(handle_pygame_events(pygame_event_queue, car))
-    queue_task = asyncio.ensure_future(rcs.enqueue(loop))
+    queue_task = asyncio.ensure_future(rcs.enqueue(loop, handle_new_frame))
     try:
         loop.run_forever()
     except KeyboardInterrupt:

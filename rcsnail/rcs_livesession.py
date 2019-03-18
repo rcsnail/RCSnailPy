@@ -5,6 +5,7 @@ import pyrebase
 #from .rcs_main import RCSnail
 #import RCSnail
 #from firebasedata import LiveData  # doesn't support authenticated users
+from .rcs_renderer import MediaRenderer
 import json
 import logging
 import os
@@ -19,7 +20,7 @@ from aiortc import (RTCIceCandidate, RTCPeerConnection, RTCSessionDescription,
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder
 from aiortc.contrib.signaling import object_from_string, object_to_string
 
-roomId = '8887779995'
+roomId = ''.join([random.choice('0123456789') for x in range(10)])
 ROOT = os.path.dirname(__file__)
 PHOTO_PATH = os.path.join(ROOT, 'photo.jpg')
 
@@ -227,10 +228,15 @@ class RCSLiveSession(object):
                 print('Exiting')
                 break
 
+    def new_frame(self, frame):
+        print('Received new frame')
+        if self.__new_frame_callback:
+            self.__new_frame_callback(frame)
 
-    async def run(self):
+    async def run(self, new_frame_callback):
         # start listening queue item
         # self.__queue_stream = self.__db.child(queuePath).stream(self.queue_stream_handler, token = self.__auth.current_user['idToken'])
+        self.__new_frame_callback = new_frame_callback
 
         # create signaling and peer connection
         signaling = ApprtcSignaling(roomId)
@@ -241,7 +247,8 @@ class RCSLiveSession(object):
 
         # create media sink
         # recorder = MediaRecorder(args.record_to)
-        recorder = MediaBlackhole()
+        # recorder = MediaBlackhole()
+        recorder = MediaRenderer(self.new_frame)
 
         # add event loop
         try:
