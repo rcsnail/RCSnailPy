@@ -23,7 +23,7 @@ class RCSnail(object):
     """
 
     def __init__(self):
-        self.__firebase = pyrebase.initialize_app(FIREBASE_CONFIG)
+        self.__firebase_app = pyrebase.initialize_app(FIREBASE_CONFIG)
 
 
     def sign_in_with_email_and_password(self, login_or_token=None, password=None):
@@ -35,7 +35,7 @@ class RCSnail(object):
         assert login_or_token is None or isinstance(login_or_token, str), login_or_token
         assert password is None or isinstance(password, str), password
         # Get a reference to the auth service
-        self.__auth = self.__firebase.auth()
+        self.__auth = self.__firebase_app.auth()
 
         # Log the user in
         if password != "":
@@ -47,9 +47,9 @@ class RCSnail(object):
             raise "User name and password missing"
 
         # Get a reference to the database service
-        self.__db = self.__firebase.database()
+        self.__db = self.__firebase_app.database()
 
-    async def enqueue(self) -> RCSLiveSession:
+    async def enqueue(self, loop) -> None:
         """
         Adding client to the queue to wait for the car becoming available. Returns live session object.
         """
@@ -58,8 +58,12 @@ class RCSnail(object):
         data = json.loads('{"track":"Spark"}')
         r = await session.post(DEFAULT_BASE_URL + "queue", data = data)
         json_body = await r.json()
-        if 'liveUrl' in json_body:
-            liveSession = RCSLiveSession(rcs = self, liveUrl = json_body['liveUrl'])
-            return liveSession
+        if 'queuePath' in json_body:
+            liveSession = RCSLiveSession(rcs = self, 
+                firebase_app = self.__firebase_app, 
+                auth = self.__auth,
+                queuePath = json_body['queuePath'],
+                loop = loop)
+            await liveSession.run()        
         else:
             raise Exception(json.dumps(json_body))

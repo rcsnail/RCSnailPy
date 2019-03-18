@@ -178,6 +178,7 @@ async def render(screen, car):
         screen.fill(black)
         car.draw(screen)
         pygame.display.flip()
+    asyncio.get_event_loop().stop()
 
 
 def main():
@@ -204,11 +205,13 @@ def main():
     pygame_task = loop.run_in_executor(None, pygame_event_loop, loop, pygame_event_queue)
     render_task = asyncio.ensure_future(render(screen, car))
     event_task = asyncio.ensure_future(handle_pygame_events(pygame_event_queue, car))
+    queue_task = asyncio.ensure_future(rcs.enqueue(loop))
     try:
         loop.run_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        queue_task.cancel()
         pygame_task.cancel()
         render_task.cancel()
         event_task.cancel()
