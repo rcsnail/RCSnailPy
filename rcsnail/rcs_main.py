@@ -58,11 +58,11 @@ class RCSnail(object):
         data = json.loads('{"track":"Spark"}')
         r = await session.post(DEFAULT_BASE_URL + "queue", data = data)
         json_body = await r.json()
-        if 'ssePath' in json_body:
+        if 'queueUrl' in json_body:
             liveSession = RCSLiveSession(rcs = self, 
                 firebase_app = self.__firebase_app, 
                 auth = self.__auth,
-                ssePath = json_body['ssePath'],
+                queueUrl = json_body['queueUrl'],
                 loop = loop)
             await liveSession.run(new_frame_callback)        
         else:

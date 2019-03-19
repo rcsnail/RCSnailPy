@@ -22,90 +22,43 @@ from aiortc import (RTCIceCandidate, RTCPeerConnection, RTCSessionDescription,
 from aiortc.contrib.media import MediaBlackhole, MediaPlayer, MediaRecorder
 from aiortc.contrib.signaling import object_from_string, object_to_string
 
-roomId = ''.join([random.choice('0123456789') for x in range(10)])
 ROOT = os.path.dirname(__file__)
 PHOTO_PATH = os.path.join(ROOT, 'photo.jpg')
 
 class RCSSignaling:
-    def __init__(self, auth, ssePath):
+    def __init__(self, auth, rs_url):
         self.__auth = auth
-        self.__ssePath = ssePath
+        self.__rs_url = rs_url
+        self.__post_url = None
 
-        self._http = None
-        self._origin = 'https://appr.tc'
-        self._room = ''.join([random.choice('0123456789') for x in range(10)])
-        self._websocket = None
-
-    async def queue_listen(self):
-        async for event in self.__event_source:
-            print(event)
-
-    def queue_error(self):
+    def rs_error(self):
         print("error")
 
-    def queue_message(self, message):
+    def rs_message(self, message):
         print(message)
+        if message['event'] == 'put' and message['path'] == '/rs':
+            # remote session started
+            print('Remote session message')
 
     async def connect(self):
-        options = {"Authorization": "Bearer " + self.__auth.current_user['idToken'],
-            "Content-Type": "application/json"}
-        path = self.__ssePath + '.json' + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
-        loop = asyncio.get_event_loop()
+        path = self.__rs_url + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
         timeout = aiohttp.ClientTimeout(total = 6000)
-        self.__session = aiohttp.ClientSession(timeout = timeout) #, conn_timeout= 10 * 60, read_timeout= 10 * 60)
+        session = aiohttp.ClientSession(timeout = timeout)
         self.__event_source = sse_client.EventSource(path, 
-            session = self.__session,
-            on_message = self.queue_message, 
-            on_error = self.queue_error)
+            session = session,
+            on_message = self.rs_message, 
+            on_error = self.rs_error
+        )
         await self.__event_source.connect()
-        self.__queue_task = asyncio.ensure_future(self.queue_listen())
-
-        '''
-        async with sse_client.EventSource(
-            path,
-            options
-        ) as event_source:
-            try:
-                async for event in event_source:
-                    print(event)
-                    await event_source.close()
-            except ConnectionError:
-                pass
-        '''     
+        # self.__queue_task = asyncio.ensure_future(self.queue_listen())
         
-        join_url = self._origin + '/join/' + self._room
-
-        # fetch room parameters
-        self._http = aiohttp.ClientSession()
-        async with self._http.post(join_url) as response:
-            # we cannot use response.json() due to:
-            # https://github.com/webrtc/apprtc/issues/562
-            data = json.loads(await response.text())
-        assert data['result'] == 'SUCCESS'
-        params = data['params']
-
-        self.__is_initiator = params['is_initiator'] == 'true'
-        self.__messages = params['messages']
-        self.__post_url = self._origin + '/message/' + self._room + '/' + params['client_id']
-
-        # connect to websocket
-        self._websocket = await websockets.connect(params['wss_url'], extra_headers={
-            'Origin': self._origin
-        })
-        await self._websocket.send(json.dumps({
-            'clientid': params['client_id'],
-            'cmd': 'register',
-            'roomid': params['room_id'],
-        }))
-
-        return params
+        return
+        # self.__messages = params['messages']
+        # self.__post_url = params['postUrl']
 
     async def close(self):
-        if self._websocket:
-            await self.send(None)
-            self._websocket.close()
-        if self._http:
-            await self._http.close()
+        if self.__event_source:
+            await self.__event_source.close()
 
     async def receive(self):
         if self.__messages:
@@ -119,13 +72,7 @@ class RCSSignaling:
     async def send(self, obj):
         message = object_to_string(obj)
         print('>', message)
-        if self.__is_initiator:
-            await self._http.post(self.__post_url, data=message)
-        else:
-            await self._websocket.send(json.dumps({
-                'cmd': 'send',
-                'msg': message,
-            }))
+        await self._http.post(self.__post_url, data=message)
 
 
 class VideoImageTrack(VideoStreamTrack):
@@ -157,41 +104,22 @@ class RCSLiveSession(object):
     RCSnail live session class handles queue item events and remote session
     """
 
-    def __init__(self, rcs, firebase_app, auth, ssePath, loop):
+    def __init__(self, rcs, firebase_app, auth, queueUrl, loop):
         """
         """
         self.__rcs = rcs
         self.__firebase_app = firebase_app
         self.__auth = auth
-        self.__ssePath = ssePath
+        self.__queueUrl = queueUrl
         self.__loop = loop
-        print('ssePath ' + ssePath)
+        print('queueUrl ' + queueUrl)
         self.__db = self.__firebase_app.database()
         self.__fb_queue = asyncio.Queue()
         # self.__queue_stream = self.__db.child(queuePath).stream(self.queue_stream_handler, token = self.__auth.current_user['idToken'])
         # self.__queue_live = LiveData(self.__firebase_app, queuePath)
         # self.__queue_live.signal('/').connect(self.queue_handler)
 
-    '''
-    def queue_handler(sender, value=None):
-        print(value)
-        rs = self.__queue_live.get('rs')
-        print(rs)
-    '''
-
-    def queue_stream_handler(self, message):
-        print(message["event"]) # put  
-        print(message["path"]) # /-K7yGTTEp7O549EzTYtI
-        print(message["data"]) # {'title': 'Pyrebase', "body": "etc..."}
-        if message['event'] == 'put' and message['path'] == '/rs':
-            # remote session started
-            print('Remote session started')
-            self.create_remote_session(rsPath = message['data'])
-            # self.__queue_stream.close() # can't close the stream from here
-            # self.__queue_stream = None
-
-
-    def create_remote_session(self, rsPath):
+    def create_remote_session(self, rsUrl):
         '''
         pc = RTCPeerConnection()
         self.__pc = pc
@@ -209,18 +137,10 @@ class RCSLiveSession(object):
         '''
         rsPath = '/rs/test'
         # self.__rs_stream = self.__db.child(rsPath).stream(self.rs_stream_handler, token = self.__auth.current_user['idToken'])
-
-
-    def rs_stream_handler(self, message):
-        print(message["event"]) # put  
-        print(message["path"]) # /-K7yGTTEp7O549EzTYtI
-        print(message["data"]) # {'title': 'Pyrebase', "body": "etc..."}
         
 
     def close(self):
-        if self.__queue_stream:
-            self.__queue_stream.close()
-            self.__queue_stream = None
+        pass
         if self.__rs_stream:
             self.__rs_stream.close()
             self.__rs_stream = None
@@ -241,14 +161,13 @@ class RCSLiveSession(object):
             recorder.addTrack(track)
 
         # connect to websocket and join
-        params = await signaling.connect()
+        await signaling.connect()
 
-        if params['is_initiator'] == 'true':
-            # send offer
-            add_tracks()
-            await pc.setLocalDescription(await pc.createOffer())
-            await signaling.send(pc.localDescription)
-            print('Please point a browser at %s' % params['room_link'])
+        # send offer
+        add_tracks()
+        await pc.setLocalDescription(await pc.createOffer())
+        await signaling.send(pc.localDescription)
+        print('Offer sent')
 
         # consume signaling
         while True:
@@ -274,13 +193,45 @@ class RCSLiveSession(object):
         if self.__new_frame_callback:
             self.__new_frame_callback(frame)
 
+    async def get_remote_session_url(self):
+        url = self.__queueUrl + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
+        timeout = aiohttp.ClientTimeout(total = 6000)
+        client_session = aiohttp.ClientSession(timeout = timeout)
+        rs_url = None
+        async with sse_client.EventSource(url, 
+            session = client_session
+        ) as event_source:
+            try:
+                async for event in event_source:
+                    print(event)
+                    if event.message == 'put':
+                        data = json.loads(event.data)
+                        data_path = data['path']
+                        data_data = data['data']
+                        if data_path == '/':
+                            if 'rsUrl' in data_data:
+                                rs_url = data_data['rsUrl']
+                        elif data_path == '/rsUrl':
+                            rs_url = data_data
+                    if rs_url != None:
+                        break
+                print(event)
+            except ConnectionError:
+                pass        
+        return rs_url
+
     async def run(self, new_frame_callback):
         # start listening queue item
         # self.__queue_stream = self.__db.child(queuePath).stream(self.queue_stream_handler, token = self.__auth.current_user['idToken'])
         self.__new_frame_callback = new_frame_callback
 
+        # wait for queue to return remote session url
+        rs_url = await self.get_remote_session_url()
+        if rs_url == None:
+            return
+
         # create signaling and peer connection
-        signaling = RCSSignaling(self.__auth, self.__ssePath)
+        signaling = RCSSignaling(self.__auth, rs_url)
         pc = RTCPeerConnection()
 
         # create media source
