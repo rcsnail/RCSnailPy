@@ -5,6 +5,7 @@ from rcsnail import RCSnail, RCSLiveSession
 import time
 import pygame
 from av import VideoFrame
+import logging
 
 FPS = 30
 window_width = 960
@@ -201,6 +202,7 @@ def handle_new_frame(frame):
 
 def main():
     print('RCSnail manual drive demo')
+    logging.basicConfig(level = logging.DEBUG)
     username = os.getenv('RCS_USERNAME', '')
     password = os.getenv('RCS_PASSWORD', '')
     if username == '':

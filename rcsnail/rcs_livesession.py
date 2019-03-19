@@ -1,5 +1,7 @@
 import asyncio
 import aiohttp
+from aiohttp_sse_client import client as sse_client
+import urllib
 import pyrebase
 #from .rcsnail import RCSnail
 #from .rcs_main import RCSnail
@@ -24,14 +26,53 @@ roomId = ''.join([random.choice('0123456789') for x in range(10)])
 ROOT = os.path.dirname(__file__)
 PHOTO_PATH = os.path.join(ROOT, 'photo.jpg')
 
-class ApprtcSignaling:
-    def __init__(self, room):
+class RCSSignaling:
+    def __init__(self, auth, ssePath):
+        self.__auth = auth
+        self.__ssePath = ssePath
+
         self._http = None
         self._origin = 'https://appr.tc'
-        self._room = room
+        self._room = ''.join([random.choice('0123456789') for x in range(10)])
         self._websocket = None
 
+    async def queue_listen(self):
+        async for event in self.__event_source:
+            print(event)
+
+    def queue_error(self):
+        print("error")
+
+    def queue_message(self, message):
+        print(message)
+
     async def connect(self):
+        options = {"Authorization": "Bearer " + self.__auth.current_user['idToken'],
+            "Content-Type": "application/json"}
+        path = self.__ssePath + '.json' + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
+        loop = asyncio.get_event_loop()
+        timeout = aiohttp.ClientTimeout(total = 6000)
+        self.__session = aiohttp.ClientSession(timeout = timeout) #, conn_timeout= 10 * 60, read_timeout= 10 * 60)
+        self.__event_source = sse_client.EventSource(path, 
+            session = self.__session,
+            on_message = self.queue_message, 
+            on_error = self.queue_error)
+        await self.__event_source.connect()
+        self.__queue_task = asyncio.ensure_future(self.queue_listen())
+
+        '''
+        async with sse_client.EventSource(
+            path,
+            options
+        ) as event_source:
+            try:
+                async for event in event_source:
+                    print(event)
+                    await event_source.close()
+            except ConnectionError:
+                pass
+        '''     
+        
         join_url = self._origin + '/join/' + self._room
 
         # fetch room parameters
@@ -116,15 +157,15 @@ class RCSLiveSession(object):
     RCSnail live session class handles queue item events and remote session
     """
 
-    def __init__(self, rcs, firebase_app, auth, queuePath, loop):
+    def __init__(self, rcs, firebase_app, auth, ssePath, loop):
         """
         """
         self.__rcs = rcs
         self.__firebase_app = firebase_app
         self.__auth = auth
-        self.__queuePath = queuePath
+        self.__ssePath = ssePath
         self.__loop = loop
-        print('queuePath ' + queuePath)
+        print('ssePath ' + ssePath)
         self.__db = self.__firebase_app.database()
         self.__fb_queue = asyncio.Queue()
         # self.__queue_stream = self.__db.child(queuePath).stream(self.queue_stream_handler, token = self.__auth.current_user['idToken'])
@@ -239,7 +280,7 @@ class RCSLiveSession(object):
         self.__new_frame_callback = new_frame_callback
 
         # create signaling and peer connection
-        signaling = ApprtcSignaling(roomId)
+        signaling = RCSSignaling(self.__auth, self.__ssePath)
         pc = RTCPeerConnection()
 
         # create media source
