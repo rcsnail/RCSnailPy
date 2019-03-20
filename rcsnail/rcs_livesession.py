@@ -26,21 +26,54 @@ ROOT = os.path.dirname(__file__)
 PHOTO_PATH = os.path.join(ROOT, 'photo.jpg')
 
 class RCSSignaling:
-    def __init__(self, auth, rs_url):
+    def __init__(self, auth, rs_url, post_url):
         self.__auth = auth
         self.__rs_url = rs_url
-        self.__post_url = None
+        self.__post_url = post_url
+        self.__message_queue = asyncio.Queue()
 
     def rs_error(self):
         print("error")
 
     def rs_message(self, message):
         print(message)
-        if message['event'] == 'put' and message['path'] == '/rs':
-            # remote session started
+        if message.message == 'put':
+            data = json.loads(message.data)
+            data_path = data['path']
+            data_data = data['data']
+            queue_message = None
+            if data_path == '/':
+                if 'messages' in data_data:
+                    # parse existing messages
+                    pass
+                    # rs_url = data_data['rsUrl']
+            elif data_path == '/messages':
+                # data_path for new message '/messages/-LaP0ffzKHctPD1uQs7M'
+                # parse new messages when data_data['uid'] == uid
+                # data_data['type']
+                # data_data['sdp'] or data_data['candidate']
+                pass
+                # rs_url = data_data
+                
+                # parse remote session info
+                # full record or change in root
+
+            if queue_message != None:
+                self.__message_queue.put(queue_message)
+            #asyncio.run_coroutine_threadsafe(event_queue.put(event), loop=loop)
             print('Remote session message')
 
+    async def rs_listen(self):
+        async for event in self.__event_source:
+            print(event)
+
     async def connect(self):
+        headers = {
+            "Authorization": "Bearer " + self.__auth.current_user['idToken'],
+            'content-type': 'application/json'
+        }
+        self._http = aiohttp.ClientSession(headers = headers)
+
         path = self.__rs_url + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
         timeout = aiohttp.ClientTimeout(total = 6000)
         session = aiohttp.ClientSession(timeout = timeout)
@@ -50,8 +83,9 @@ class RCSSignaling:
             on_error = self.rs_error
         )
         await self.__event_source.connect()
+        self.__rs_task = asyncio.ensure_future(self.rs_listen())
         # self.__queue_task = asyncio.ensure_future(self.queue_listen())
-        
+
         return
         # self.__messages = params['messages']
         # self.__post_url = params['postUrl']
@@ -59,13 +93,14 @@ class RCSSignaling:
     async def close(self):
         if self.__event_source:
             await self.__event_source.close()
+        if self.__rs_task:
+            self.__rs_task.cancel()
+        if self._http:
+            await self._http.close()
 
     async def receive(self):
-        if self.__messages:
-            message = self.__messages.pop(0)
-        else:
-            message = await self._websocket.recv()
-            message = json.loads(message)['msg']
+        message = await self.__message_queue.get()
+        # message = json.loads(message)['msg']
         print('<', message)
         return object_from_string(message)
 
@@ -178,10 +213,8 @@ class RCSLiveSession(object):
                 await recorder.start()
 
                 if obj.type == 'offer':
-                    # send answer
-                    add_tracks()
-                    await pc.setLocalDescription(await pc.createAnswer())
-                    await signaling.send(pc.localDescription)
+                    print('Got wrong offer. Exiting')
+                    break
             elif isinstance(obj, RTCIceCandidate):
                 pc.addIceCandidate(obj)
             else:
@@ -198,6 +231,7 @@ class RCSLiveSession(object):
         timeout = aiohttp.ClientTimeout(total = 6000)
         client_session = aiohttp.ClientSession(timeout = timeout)
         rs_url = None
+        rs_post_url = None
         async with sse_client.EventSource(url, 
             session = client_session
         ) as event_source:
@@ -211,6 +245,8 @@ class RCSLiveSession(object):
                         if data_path == '/':
                             if 'rsUrl' in data_data:
                                 rs_url = data_data['rsUrl']
+                            if 'rsPostUrl' in data_data:
+                                rs_post_url = data_data['rsPostUrl']
                         elif data_path == '/rsUrl':
                             rs_url = data_data
                     if rs_url != None:
@@ -218,7 +254,7 @@ class RCSLiveSession(object):
                 print(event)
             except ConnectionError:
                 pass        
-        return rs_url
+        return rs_url, rs_post_url
 
     async def run(self, new_frame_callback):
         # start listening queue item
@@ -226,12 +262,12 @@ class RCSLiveSession(object):
         self.__new_frame_callback = new_frame_callback
 
         # wait for queue to return remote session url
-        rs_url = await self.get_remote_session_url()
+        rs_url, rs_post_url = await self.get_remote_session_url()
         if rs_url == None:
             return
 
         # create signaling and peer connection
-        signaling = RCSSignaling(self.__auth, rs_url)
+        signaling = RCSSignaling(self.__auth, rs_url, rs_post_url)
         pc = RTCPeerConnection()
 
         # create media source
