@@ -102,15 +102,16 @@ class RCSSignaling:
         print('<', message)
         # msg = json.dumps(message)
         if message['type'] in ['answer', 'offer']:
+            sdp = message['sdp']
             msg = {
-                'sdp': message['sdp'],
+                'sdp': sdp,
                 'type': message['type']
             }
-            return RTCSessionDescription(**msg)
+            #return RTCSessionDescription(**msg)
+            return RTCSessionDescription(sdp=sdp, type=message['type'])
         elif message['type'] == 'candidate':
-            candidate = candidate_from_sdp(message['candidate'])
-            if 'sdpMid' in message:
-                candidate.sdpMid = message['sdpMid']
+            candidate = candidate_from_sdp(message['candidate'].split(':', 1)[1])
+            candidate.sdpMid = message['sdpMid']
             candidate.sdpMLineIndex = message['sdpMLine']
             return candidate
         else:
@@ -199,7 +200,7 @@ class RCSLiveSession(object):
                 await pc.setRemoteDescription(obj)
                 await recorder.start()
             elif isinstance(obj, RTCIceCandidate):
-                    pc.addIceCandidate(obj)
+                pc.addIceCandidate(obj)
             else:
                 print('Exiting')
                 break

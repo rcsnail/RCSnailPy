@@ -91,7 +91,7 @@ class Car:
                 self.virtual_speed + dt * (self.acceleration - self.braking_k * self.braking)))
         
         # conditions to change the direction
-        if not self.up_down and not self.down_down and self.virtual_speed < 1.0:
+        if not self.up_down and not self.down_down and self.virtual_speed < 0.01:
             self.gear = 0
 
 
