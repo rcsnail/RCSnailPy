@@ -179,6 +179,7 @@ async def render(screen, car):
     ovl = pygame.Overlay(pygame.YV12_OVERLAY, (640, 480))
     # ovl.set_location(pygame.Rect(0, 0, window_width, window_height))
     while True:
+        pygame.event.pump()
         last_time, current_time = current_time, time.time()
         await asyncio.sleep(1 / FPS - (current_time - last_time))  # tick
         car.update((current_time - last_time) / 1.0)
