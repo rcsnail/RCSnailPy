@@ -168,6 +168,8 @@ class RCSLiveSession(object):
 
     async def run_session(self, pc, player, recorder, signaling):
         def add_tracks():
+            pass
+            '''
             if player and player.audio:
                 pc.addTrack(player.audio)
 
@@ -175,6 +177,7 @@ class RCSLiveSession(object):
                 pc.addTrack(player.video)
             else:
                 pc.addTrack(VideoImageTrack())
+            '''
 
         @pc.on('track')
         def on_track(track):
