@@ -184,6 +184,7 @@ class RCSLiveSession(object):
         # connect to websocket and join
         await signaling.connect()
 
+        '''
         # send offer
         add_tracks()
         offer = await pc.createOffer()
@@ -191,6 +192,7 @@ class RCSLiveSession(object):
         await signaling.send(pc.localDescription)
         # await signaling.send(offer)
         print('Offer sent')
+        '''
 
         # consume signaling
         while True:
@@ -198,6 +200,11 @@ class RCSLiveSession(object):
 
             if isinstance(obj, RTCSessionDescription):
                 await pc.setRemoteDescription(obj)
+                if obj.type == "offer":
+                    add_tracks()
+                    answer = await pc.createAnswer()
+                    await pc.setLocalDescription(answer)
+                    await signaling.send(pc.localDescription)
                 await recorder.start()
             elif isinstance(obj, RTCIceCandidate):
                 pc.addIceCandidate(obj)
