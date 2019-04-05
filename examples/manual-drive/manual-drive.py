@@ -159,6 +159,7 @@ async def handle_pygame_events(event_queue, car):
     while True:
         event = await event_queue.get()
         if event.type == pygame.QUIT:
+            print("event", event)
             break
         elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
             if event.key == pygame.K_LEFT:
@@ -176,21 +177,35 @@ async def handle_pygame_events(event_queue, car):
 async def render(screen, car):
     global latest_frame
     current_time = 0
-    ovl = pygame.Overlay(pygame.YV12_OVERLAY, (640, 480))
-    # ovl.set_location(pygame.Rect(0, 0, window_width, window_height))
+    # overlay is not the nicest but should be most performant way to display frame
+    frame_size = (640, 480)
+    ovl = pygame.Overlay(pygame.YV12_OVERLAY, frame_size)
+    ovl.set_location(pygame.Rect(0, 0, window_width - 20, window_height - 10))
     while True:
         pygame.event.pump()
         last_time, current_time = current_time, time.time()
         await asyncio.sleep(1 / FPS - (current_time - last_time))  # tick
         car.update((current_time - last_time) / 1.0)
+        screen.fill(black)
         if isinstance(latest_frame, VideoFrame):
-            ovl.display((latest_frame.planes[0], latest_frame.planes[1], latest_frame.planes[2]))    
-            #screen.fill(blue)
-            #VideoFrame(latest_fram).to_rgb()
-        else:
-            screen.fill(black)
-            car.draw(screen)
-            pygame.display.flip()
+            if frame_size[0] != latest_frame.width or frame_size[1] != latest_frame.height:
+                frame_size = (latest_frame.width, latest_frame.height)
+                ovl = None
+                ovl = pygame.Overlay(pygame.YV12_OVERLAY, frame_size) # (320, 240))
+                ovl.set_location(pygame.Rect(0, 0, window_width - 20, window_height - 10))
+            ovl.display((latest_frame.planes[0], latest_frame.planes[1], latest_frame.planes[2]))
+            
+            # check different frame formats https://docs.mikeboers.com/pyav/develop/api/video.html
+            # PIL or Pillow must be installed:
+            #image_pil = latest_frame.to_image()
+            #screen.blit(image_pil, (0, 0))
+            # Numpy must be installed:
+            #image_to_ndarray = latest_frame.to_ndarray()
+
+            #image_rgb = latest_frame.to_rgb()
+            #screen.blit(image_rgb, (0, 0))
+        car.draw(screen)
+        pygame.display.flip()
     asyncio.get_event_loop().stop()
 
 
@@ -203,7 +218,7 @@ def handle_new_frame(frame):
 
 def main():
     print('RCSnail manual drive demo')
-    logging.basicConfig(level = logging.DEBUG)
+    #logging.basicConfig(level = logging.DEBUG)
     username = os.getenv('RCS_USERNAME', '')
     password = os.getenv('RCS_PASSWORD', '')
     if username == '':
