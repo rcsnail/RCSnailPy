@@ -160,6 +160,7 @@ class RCSLiveSession(object):
         self.__auth = auth
         self.__queueUrl = queueUrl
         self.__loop = loop
+        self.__frameCount = 0
         self.__uid = auth.current_user['localId']
         self.__queueUpdateUrl = queueUpdateUrl
         self.__queueKeepAliveTime = queueKeepAliveTime
@@ -233,7 +234,9 @@ class RCSLiveSession(object):
 
 
     def new_frame(self, frame):
-        print('Received new frame')
+        if self.__frameCount % 100 == 0:
+            print('Received new frame', self.__frameCount)
+        self.__frameCount = self.__frameCount + 1
         if self.__new_frame_callback:
             self.__new_frame_callback(frame)
 
