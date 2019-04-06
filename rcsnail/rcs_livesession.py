@@ -152,7 +152,7 @@ class RCSLiveSession(object):
     RCSnail live session class handles queue item events and remote session
     """
 
-    def __init__(self, rcs, firebase_app, auth, queueUrl, loop):
+    def __init__(self, rcs, firebase_app, auth, queueUrl, queueUpdateUrl, queueKeepAliveTime, loop):
         """
         """
         self.__rcs = rcs
@@ -161,7 +161,21 @@ class RCSLiveSession(object):
         self.__queueUrl = queueUrl
         self.__loop = loop
         self.__uid = auth.current_user['localId']
+        self.__queueUpdateUrl = queueUpdateUrl
+        self.__queueKeepAliveTime = queueKeepAliveTime
+        self.__taskQueueKeepAlive = loop.create_task(self.queueKeepAlive())
         print('queueUrl ' + queueUrl)
+
+    async def queueKeepAlive(self):
+        while True:
+            await asyncio.sleep(self.__queueKeepAliveTime)
+            headers = {"Authorization": "Bearer " + self.__auth.current_user['idToken']}
+            session = aiohttp.ClientSession(headers = headers)
+            data = {"keep-alive": True}
+            r = await session.post(self.__queueUpdateUrl, data = data)
+            json_body = await r.json()
+            if not ('state' in json_body) or (json_body['state'] != 'waiting'):
+                break
 
     def close(self):
         print('Closing RCS live session')
@@ -249,6 +263,7 @@ class RCSLiveSession(object):
                     if rs_url != None:
                         break
                 print(event)
+                self.__taskQueueKeepAlive.cancel()
             except ConnectionError:
                 pass        
         return rs_url, rs_post_url

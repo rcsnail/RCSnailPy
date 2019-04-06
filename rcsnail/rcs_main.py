@@ -63,6 +63,8 @@ class RCSnail(object):
                 firebase_app = self.__firebase_app, 
                 auth = self.__auth,
                 queueUrl = json_body['queueUrl'],
+                queueUpdateUrl = json_body['queueUpdateUrl'],
+                queueKeepAliveTime = json_body['queueKeepAliveTime'],
                 loop = loop)
             await liveSession.run(new_frame_callback)        
         else:
