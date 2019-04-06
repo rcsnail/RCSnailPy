@@ -43,7 +43,15 @@ class RCSSignaling:
             return
         self.__received_messages[key] = data
         # await self.__message_queue.put(data)
-        asyncio.run_coroutine_threadsafe(self.__message_queue.put(data), loop = self.__loop)
+        if "type" in data and data["type"] == "candidates":
+            for message in data["candidates"]:
+                candidate = {
+                    "type": "candidate",
+                    "candidate": message
+                }
+                asyncio.run_coroutine_threadsafe(self.__message_queue.put(candidate), loop = self.__loop)
+        else:
+            asyncio.run_coroutine_threadsafe(self.__message_queue.put(data), loop = self.__loop)
 
     def rs_message(self, message):
         print(message)
