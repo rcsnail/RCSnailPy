@@ -12,6 +12,7 @@ import json
 import logging
 import os
 import random
+import time
 
 import cv2
 import websockets
@@ -107,10 +108,6 @@ class RCSSignaling:
         # msg = json.dumps(message)
         if message['type'] in ['answer', 'offer']:
             sdp = message['sdp']
-            msg = {
-                'sdp': sdp,
-                'type': message['type']
-            }
             #return RTCSessionDescription(**msg)
             return RTCSessionDescription(sdp=sdp, type=message['type'])
         elif message['type'] == 'candidate':
@@ -168,6 +165,9 @@ class RCSLiveSession(object):
         self.__uid = auth.current_user['localId']
         self.__queueUpdateUrl = queueUpdateUrl
         self.__queueKeepAliveTime = queueKeepAliveTime
+        self.__controlChannel = None
+        self.__controlPacket = 0
+        self.__canSendControl = True
         self.__taskQueueKeepAlive = loop.create_task(self.queueKeepAlive())
         print('queueUrl ' + queueUrl)
 
@@ -187,8 +187,19 @@ class RCSLiveSession(object):
 
     async def run_session(self, pc, player, recorder, signaling):
         def add_tracks():
-            pass
+            self.__controlChannel = pc.createDataChannel('control',
+                # maxPacketLifeTime=1, 
+                # maxRetransmits = 0, 
+                ordered = False)
+
             '''
+            def send_data():
+                data = "turn left"
+                self.__controlChannel.send(data)
+
+            self.__controlChannel.on('bufferedamountlow', send_data)
+            self.__controlChannel.on('open', send_data)
+            
             if player and player.audio:
                 pc.addTrack(player.audio)
 
@@ -202,6 +213,33 @@ class RCSLiveSession(object):
         def on_track(track):
             print('Track %s received' % track.kind)
             recorder.addTrack(track)
+
+        @pc.on('datachannel')
+        def on_datachannel(channel):
+            start = time.time()
+            octets = 0
+            print('datachannel started: %s' % (channel.label)) 
+
+            @channel.on('message')
+            async def on_message(message):
+                nonlocal octets
+
+                if message:
+                    octets += len(message)
+                    # fp.write(message)
+                    data = data = json.loads(message)
+                    delta = 0
+                    if "c" in data:
+                        delta = int(time.time() * 1000.0) - data["c"]
+                        self.__canSendControl = True
+                    print('datachannel message: %d %s' % (delta, message)) 
+                else:
+                    elapsed = time.time() - start
+                    print('received %d bytes in %.1f s (%.3f Mbps)' % (
+                        octets, elapsed, octets * 8 / elapsed / 1000000))
+
+                    # say goodbye
+                    # await signaling.send(None)
 
         # connect to websocket and join
         await signaling.connect()
@@ -236,6 +274,25 @@ class RCSLiveSession(object):
 
         await signaling.close()
 
+    # gear reverse: -1, neutral: 0, drive: 1
+    # steering -1.0...1.0
+    # throttle 0..1.0
+    # braking 0..1.0
+    def updateControl(self, gear, steering, throttle, braking):
+        if self.__canSendControl and self.__controlChannel != None and self.__controlChannel.readyState == "open":
+            if steering == 0 and throttle == 0 and braking == 0: 
+                return
+            data = {
+                "p": self.__controlPacket,
+                "c": int(time.time() * 1000.0),
+                "g": gear,
+                "s": steering,
+                "t": throttle,
+                "b": braking
+            }
+            self.__controlPacket = self.__controlPacket + 1
+            self.__canSendControl = False
+            self.__controlChannel.send(json.dumps(data))
 
     def new_frame(self, frame):
         if self.__frameCount % 100 == 0:

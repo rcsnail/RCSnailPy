@@ -23,6 +23,7 @@ class RCSnail(object):
     """
 
     def __init__(self):
+        self.liveSession = None
         self.__firebase_app = pyrebase.initialize_app(FIREBASE_CONFIG)
 
 
@@ -55,17 +56,25 @@ class RCSnail(object):
         """
         headers = {"Authorization": "Bearer " + self.__user['idToken']}
         session = aiohttp.ClientSession(headers = headers)
-        data = json.loads('{"track":"Spark"}')
+        data = {"track":"Spark"}
         r = await session.post(DEFAULT_BASE_URL + "queue", data = data)
         json_body = await r.json()
         if 'queueUrl' in json_body:
-            liveSession = RCSLiveSession(rcs = self, 
+            self.liveSession = RCSLiveSession(rcs = self, 
                 firebase_app = self.__firebase_app, 
                 auth = self.__auth,
                 queueUrl = json_body['queueUrl'],
                 queueUpdateUrl = json_body['queueUpdateUrl'],
                 queueKeepAliveTime = json_body['queueKeepAliveTime'],
                 loop = loop)
-            await liveSession.run(new_frame_callback)        
+            await self.liveSession.run(new_frame_callback)        
         else:
             raise Exception(json.dumps(json_body))
+
+    # gear reverse: -1, neutral: 0, drive: 1
+    # steering -1.0...1.0
+    # throttle 0..1.0
+    # braking 0..1.0
+    def updateControl(self, gear, steering, throttle, braking):
+        if not (self.liveSession is None):
+            self.liveSession.updateControl(gear, steering, throttle, braking)

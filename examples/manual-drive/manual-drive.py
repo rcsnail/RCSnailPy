@@ -20,7 +20,7 @@ class Car:
     def __init__(self):
         # units in percentage range 0..1 
         self.steering = 0.0
-        self.acceleration = 0.0
+        self.throttle = 0.0
         self.braking = 0.0
         self.gear = 0
         self.max_steering = 1.0
@@ -56,29 +56,29 @@ class Car:
         elif not self.left_down and self.right_down:
             self.steering = min(1.0, self.steering + dt * self.steering_speed)
 
-        # calculating gear, acceleration, braking
+        # calculating gear, throttle, braking
         if self.up_down and not self.down_down:
             if self.gear == 0:
                 self.gear = 1
-                self.acceleration = 0.0
+                self.throttle = 0.0
             if self.gear == 1:     # drive accelerating
-                self.acceleration = min(self.max_acceleration, self.acceleration + dt * self.acceleration_speed)
+                self.throttle = min(self.max_acceleration, self.throttle + dt * self.acceleration_speed)
                 self.braking = 0.0
             elif self.gear == -1:  # reverse braking
                 self.braking = min(self.max_braking, self.braking + dt * self.braking_speed)
-                self.acceleration = 0.0
+                self.throttle = 0.0
         elif not self.up_down and self.down_down:
             if self.gear == 0:
                 self.gear = -1
-                self.acceleration = 0.0
+                self.throttle = 0.0
             if self.gear == 1:     # drive braking
                 self.braking = min(self.max_braking, self.braking + dt * self.braking_speed)
-                self.acceleration = 0.0
+                self.throttle = 0.0
             elif self.gear == -1:  # reverse accelerating
-                self.acceleration = min(self.max_acceleration, self.acceleration + dt * self.acceleration_speed)
+                self.throttle = min(self.max_acceleration, self.throttle + dt * self.acceleration_speed)
                 self.braking = 0.0
         else:  # both down or both up
-            self.acceleration = max(0.0, self.acceleration - dt * self.deacceleration_speed)
+            self.throttle = max(0.0, self.throttle - dt * self.deacceleration_speed)
             self.braking = max(0.0, self.braking - dt * self.deacceleration_speed)
 
         # calculate virtual speed
@@ -88,7 +88,7 @@ class Car:
                 self.virtual_speed - dt * self.min_deacceleration))
         else:
             self.virtual_speed = max(0.0, min(self.max_virtual_speed, 
-                self.virtual_speed + dt * (self.acceleration - self.braking_k * self.braking)))
+                self.virtual_speed + dt * (self.throttle - self.braking_k * self.braking)))
         
         # conditions to change the direction
         if not self.up_down and not self.down_down and self.virtual_speed < 0.01:
@@ -111,11 +111,11 @@ class Car:
 
         # Acceleration/braking gauge:
         if self.gear == 1:
-            if self.acceleration > 0.0:
+            if self.throttle > 0.0:
                 R = pygame.Rect(window_width - 20, 
                     0,
                     10,
-                    window_height / 2 * self.acceleration / self.max_acceleration)
+                    window_height / 2 * self.throttle / self.max_acceleration)
                 R = R.move(0, window_height / 2 - R.height)
                 pygame.draw.rect(screen, green, R)
             if self.braking > 0.0:
@@ -125,11 +125,11 @@ class Car:
                     window_height / 2 * self.braking / self.max_braking)
                 pygame.draw.rect(screen, red, R)
         elif self.gear == -1:
-            if self.acceleration > 0.0:
+            if self.throttle > 0.0:
                 R = pygame.Rect(window_width - 20, 
                     window_height / 2,
                     10,
-                    window_height / 2 * self.acceleration / self.max_acceleration)
+                    window_height / 2 * self.throttle / self.max_acceleration)
                 pygame.draw.rect(screen, green, R)
             if self.braking > 0.0:
                 R = pygame.Rect(window_width - 20, 
@@ -174,7 +174,7 @@ async def handle_pygame_events(event_queue, car):
     asyncio.get_event_loop().stop()
 
 
-async def render(screen, car):
+async def render(screen, car, rcs):
     global latest_frame
     current_time = 0
     # overlay is not the nicest but should be most performant way to display frame
@@ -186,6 +186,7 @@ async def render(screen, car):
         last_time, current_time = current_time, time.time()
         await asyncio.sleep(1 / FPS - (current_time - last_time))  # tick
         car.update((current_time - last_time) / 1.0)
+        rcs.updateControl(car.gear, car.steering, car.throttle, car.braking)
         screen.fill(black)
         if isinstance(latest_frame, VideoFrame):
             if frame_size[0] != latest_frame.width or frame_size[1] != latest_frame.height:
@@ -239,7 +240,7 @@ def main():
     car = Car()
 
     pygame_task = loop.run_in_executor(None, pygame_event_loop, loop, pygame_event_queue)
-    render_task = asyncio.ensure_future(render(screen, car))
+    render_task = asyncio.ensure_future(render(screen, car, rcs))
     event_task = asyncio.ensure_future(handle_pygame_events(pygame_event_queue, car))
     queue_task = asyncio.ensure_future(rcs.enqueue(loop, handle_new_frame))
     try:
