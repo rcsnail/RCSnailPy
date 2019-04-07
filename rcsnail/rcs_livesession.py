@@ -13,6 +13,7 @@ import logging
 import os
 import random
 import time
+import logging
 
 import cv2
 import websockets
@@ -168,6 +169,7 @@ class RCSLiveSession(object):
         self.__controlChannel = None
         self.__controlPacket = 0
         self.__canSendControl = True
+        self.__lastSendControl = 0
         self.__taskQueueKeepAlive = loop.create_task(self.queueKeepAlive())
         print('queueUrl ' + queueUrl)
 
@@ -187,10 +189,11 @@ class RCSLiveSession(object):
 
     async def run_session(self, pc, player, recorder, signaling):
         def add_tracks():
-            self.__controlChannel = pc.createDataChannel('control',
-                # maxPacketLifeTime=1, 
-                # maxRetransmits = 0, 
-                ordered = False)
+            self.__controlChannel = pc.createDataChannel('control'
+                , maxPacketLifeTime = 1  # this seems better
+                #, maxRetransmits = 0 
+                , ordered = False
+                )
 
             '''
             def send_data():
@@ -232,7 +235,8 @@ class RCSLiveSession(object):
                     if "c" in data:
                         delta = int(time.time() * 1000.0) - data["c"]
                         self.__canSendControl = True
-                    print('datachannel message: %d %s' % (delta, message)) 
+                    logging.warn("data recv %d %s" % (delta, message))
+                    #print('data recv: %d %s' % (delta, message)) 
                 else:
                     elapsed = time.time() - start
                     print('received %d bytes in %.1f s (%.3f Mbps)' % (
@@ -278,21 +282,34 @@ class RCSLiveSession(object):
     # steering -1.0...1.0
     # throttle 0..1.0
     # braking 0..1.0
-    def updateControl(self, gear, steering, throttle, braking):
-        if self.__canSendControl and self.__controlChannel != None and self.__controlChannel.readyState == "open":
+    async def updateControl(self, gear, steering, throttle, braking):
+        if ( #self.__canSendControl and 
+                self.__controlChannel != None and 
+                self.__controlChannel.readyState == "open"):
             if steering == 0 and throttle == 0 and braking == 0: 
                 return
+            sendTime = int(time.time() * 1000.0)
+            if not self.__canSendControl and self.__lastSendControl > (sendTime - 100):
+                return
+            self.__lastSendControl = sendTime
             data = {
                 "p": self.__controlPacket,
-                "c": int(time.time() * 1000.0),
+                "c": sendTime,
                 "g": gear,
                 "s": steering,
                 "t": throttle,
                 "b": braking
+                #,"dummy": " " * 1000
             }
             self.__controlPacket = self.__controlPacket + 1
             self.__canSendControl = False
+            logging.warn("data send %s" % (data))
+            #print('data send %s' % (data)) 
             self.__controlChannel.send(json.dumps(data))
+            await self.__controlChannel.transport._data_channel_flush()
+            # send dummy bytes to force previous package delivery
+            # data = bytes(5000)
+            # self.__controlChannel.send(data)
 
     def new_frame(self, frame):
         if self.__frameCount % 100 == 0:

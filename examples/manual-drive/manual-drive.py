@@ -186,7 +186,7 @@ async def render(screen, car, rcs):
         last_time, current_time = current_time, time.time()
         await asyncio.sleep(1 / FPS - (current_time - last_time))  # tick
         car.update((current_time - last_time) / 1.0)
-        rcs.updateControl(car.gear, car.steering, car.throttle, car.braking)
+        await rcs.updateControl(car.gear, car.steering, car.throttle, car.braking)
         screen.fill(black)
         if isinstance(latest_frame, VideoFrame):
             if frame_size[0] != latest_frame.width or frame_size[1] != latest_frame.height:
@@ -219,7 +219,7 @@ def handle_new_frame(frame):
 
 def main():
     print('RCSnail manual drive demo')
-    #logging.basicConfig(level = logging.DEBUG)
+    logging.basicConfig(level = logging.WARNING, format='%(asctime)s %(message)s')
     username = os.getenv('RCS_USERNAME', '')
     password = os.getenv('RCS_PASSWORD', '')
     if username == '':

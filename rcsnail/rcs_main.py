@@ -75,6 +75,6 @@ class RCSnail(object):
     # steering -1.0...1.0
     # throttle 0..1.0
     # braking 0..1.0
-    def updateControl(self, gear, steering, throttle, braking):
+    async def updateControl(self, gear, steering, throttle, braking):
         if not (self.liveSession is None):
-            self.liveSession.updateControl(gear, steering, throttle, braking)
+            await self.liveSession.updateControl(gear, steering, throttle, braking)
