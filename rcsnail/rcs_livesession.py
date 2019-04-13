@@ -286,8 +286,8 @@ class RCSLiveSession(object):
         if ( #self.__canSendControl and 
                 self.__controlChannel != None and 
                 self.__controlChannel.readyState == "open"):
-            if steering == 0 and throttle == 0 and braking == 0: 
-                return
+            # if steering == 0 and throttle == 0 and braking == 0: 
+            #    return
             sendTime = int(time.time() * 1000.0)
             if not self.__canSendControl and self.__lastSendControl > (sendTime - 100):
                 return
