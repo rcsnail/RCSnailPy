@@ -26,8 +26,8 @@ class Car:
         self.max_steering = 1.0
         self.max_acceleration = 1.0
         self.max_braking = 1.0
-        self.braking_k = 2.0            # coef used for virtual speed braking calc 
-        self.min_deacceleration = 0.3   # speed reduction when nothing is pressed
+        self.braking_k = 5.0            # coeficient used for virtual speed braking calc 
+        self.min_deacceleration = 5     # speed reduction when nothing is pressed
         # units of change over one second:
         self.steering_speed = 5.0 
         self.steering_speed_neutral = 3.0 
