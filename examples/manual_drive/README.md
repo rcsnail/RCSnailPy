@@ -42,6 +42,6 @@ or in VSCode to launch.json "configurations":
             "type": "python",
             "request": "launch",
             "env": {"RCS_USERNAME":"test@test.ee", "RCS_PASSWORD":"password"},
-            "program": "${workspaceFolder}/examples/manual-drive/manual-drive.py"
+            "program": "${workspaceFolder}/examples/manual_drive/manual_drive.py"
         },        
     
