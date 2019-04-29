@@ -106,3 +106,5 @@ rcsnail-env/
 
 # mypy
 .mypy_cache/
+
+/3rdparty/aiortc/
