@@ -14,6 +14,7 @@ import os
 import random
 import time
 import logging
+import ssl
 
 import cv2
 import websockets
@@ -114,7 +115,7 @@ class RCSSignaling:
         elif message['type'] == 'candidate':
             candidate = candidate_from_sdp(message['candidate'].split(':', 1)[1])
             candidate.sdpMid = message['sdpMid']
-            candidate.sdpMLineIndex = message['sdpMLine']
+            candidate.sdpMLineIndex = message['sdpMLineIndex']
             return candidate
         else:
             return None
@@ -171,6 +172,7 @@ class RCSLiveSession(object):
         self.__canSendControl = True
         self.__lastSendControl = 0
         self.__taskQueueKeepAlive = loop.create_task(self.queueKeepAlive())
+        self.__rto = 0
         print('queueUrl ' + queueUrl)
 
     async def queueKeepAlive(self):
@@ -189,11 +191,11 @@ class RCSLiveSession(object):
 
     async def run_session(self, pc, player, recorder, signaling):
         def add_tracks():
-            self.__controlChannel = pc.createDataChannel('control'
-                , maxPacketLifeTime = 1  # this seems better
-                #, maxRetransmits = 0 
-                , ordered = False
-                )
+            self.__controlChannel = pc.createDataChannel('control')
+                #, maxPacketLifeTime = 1  # this seems better
+                ##, maxRetransmits = 0 
+                #, ordered = False
+                #)
 
             '''
             def send_data():
@@ -289,8 +291,8 @@ class RCSLiveSession(object):
             # if steering == 0 and throttle == 0 and braking == 0: 
             #    return
             sendTime = int(time.time() * 1000.0)
-            if not self.__canSendControl and self.__lastSendControl > (sendTime - 100):
-                return
+            # if not self.__canSendControl and self.__lastSendControl > (sendTime - 100):
+            #    return
             self.__lastSendControl = sendTime
             data = {
                 "p": self.__controlPacket,
@@ -303,10 +305,17 @@ class RCSLiveSession(object):
             }
             self.__controlPacket = self.__controlPacket + 1
             self.__canSendControl = False
-            logging.warn("data send %s" % (data))
+            # logging.warn("data send %s" % (data))
             #print('data send %s' % (data)) 
+            if abs(self.__rto - self.__controlChannel.transport._rto) / self.__controlChannel.transport._rto > 0.1:
+                self.__rto = self.__controlChannel.transport._rto
+                print('rto', self.__rto)
             self.__controlChannel.send(json.dumps(data))
-            await self.__controlChannel.transport._data_channel_flush()
+            
+            if self.__controlChannel.transport._association_state == self.__controlChannel.transport.State.ESTABLISHED:
+                await self.__controlChannel.transport._data_channel_flush()
+                await self.__controlChannel.transport._transmit()
+                #pass
             # send dummy bytes to force previous package delivery
             # data = bytes(5000)
             # self.__controlChannel.send(data)
