@@ -237,6 +237,7 @@ class RCSLiveSession(object):
                     if "c" in data:
                         delta = int(time.time() * 1000.0) - data["c"]
                         self.__canSendControl = True
+                    asyncio.ensure_future(self.new_telemetry(message))
                     logging.warn("data recv %d %s" % (delta, message))
                     #print('data recv: %d %s' % (delta, message)) 
                 else:
@@ -327,6 +328,10 @@ class RCSLiveSession(object):
         if self.__new_frame_callback:
             self.__new_frame_callback(frame)
 
+    async def new_telemetry(self, telemetry):
+        if self.__new_telemetry_callback:
+            self.__new_telemetry_callback(telemetry)
+
     async def get_remote_session_url(self):
         url = self.__queueUrl + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
         timeout = aiohttp.ClientTimeout(total = 6000)
@@ -358,8 +363,9 @@ class RCSLiveSession(object):
                 pass        
         return rs_url, rs_post_url
 
-    async def run(self, new_frame_callback):
+    async def run(self, new_frame_callback, new_telemetry_callback=None):
         self.__new_frame_callback = new_frame_callback
+        self.__new_telemetry_callback = new_telemetry_callback
 
         # wait for queue to return remote session url
         rs_url, rs_post_url = await self.get_remote_session_url()
