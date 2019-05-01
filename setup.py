@@ -5,7 +5,7 @@ with open("README.md", "r") as fh:
 
 setuptools.setup(
     name="RCSnailPy",
-    version="0.0.1",
+    version="0.1.0",
     author="Rainer Paat",
     author_email="rainer@rcsnail.ee",
     description="RCSnail API",
