@@ -70,7 +70,7 @@ class RCSnail(object):
                 queueUpdateUrl = json_body['queueUpdateUrl'],
                 queueKeepAliveTime = json_body['queueKeepAliveTime'],
                 loop = loop)
-            await self.liveSession.run(new_frame_callback, new_frame_callback)
+            await self.liveSession.run(new_frame_callback, new_telemetry_callback)
         else:
             raise Exception(json.dumps(json_body))
 
