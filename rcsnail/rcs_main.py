@@ -51,7 +51,7 @@ class RCSnail(object):
         # Get a reference to the database service
         self.__db = self.__firebase_app.database()
 
-    async def enqueue(self, loop, new_frame_callback) -> None:
+    async def enqueue(self, loop, new_frame_callback, new_telemetry_callback=None) -> None:
         """
         Adding client to the queue to wait for the car becoming available. Returns live session object.
         """
@@ -63,14 +63,14 @@ class RCSnail(object):
         r = await session.post(DEFAULT_BASE_URL + "queue", data = data)
         json_body = await r.json()
         if 'queueUrl' in json_body:
-            self.liveSession = RCSLiveSession(rcs = self, 
-                firebase_app = self.__firebase_app, 
+            self.liveSession = RCSLiveSession(rcs = self,
+                firebase_app = self.__firebase_app,
                 auth = self.__auth,
                 queueUrl = json_body['queueUrl'],
                 queueUpdateUrl = json_body['queueUpdateUrl'],
                 queueKeepAliveTime = json_body['queueKeepAliveTime'],
                 loop = loop)
-            await self.liveSession.run(new_frame_callback)        
+            await self.liveSession.run(new_frame_callback, new_telemetry_callback)
         else:
             raise Exception(json.dumps(json_body))
 
