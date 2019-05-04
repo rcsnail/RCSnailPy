@@ -35,11 +35,16 @@ class Car:
         self.up_down = False
         self.down_down = False
 
+        # telemetry
+        self.batVoltage_mV = 0
+
         self.window_width = 960
         self.window_height = 480
         self.red = (255, 0, 0)
         self.green = (0, 255, 0)
         self.blue = (0, 0, 255)
+
+        self.font = pygame.font.SysFont('Roboto', 12)
 
     def update(self, dt):
         # calculate steering
@@ -146,21 +151,27 @@ class Car:
                 R = R.move(0, self.window_height - R.height)
             pygame.draw.rect(screen, self.green, R)
 
+        if self.batVoltage_mV >= 0:
+            telemetry_text = "{0} mV".format(self.batVoltage_mV)
+            telemetry_texture = self.font.render(telemetry_text, True, self.red)
+            screen.blit(telemetry_texture, (3, self.window_height - 14))
+
 
 class PygameRenderer:
-    def __init__(self):
+    def __init__(self, car):
         self.window_width = 960
         self.window_height = 480
         self.FPS = 30
         self.black = (0, 0, 0)
         self.latest_frame = None
+        self.car = car
 
     def pygame_event_loop(self, loop, event_queue):
         while True:
             event = pygame.event.wait()
             asyncio.run_coroutine_threadsafe(event_queue.put(event), loop=loop)
 
-    async def handle_pygame_events(self, event_queue, car):
+    async def handle_pygame_events(self, event_queue):
         while True:
             event = await event_queue.get()
             if event.type == pygame.QUIT:
@@ -168,17 +179,17 @@ class PygameRenderer:
                 break
             elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
                 if event.key == pygame.K_LEFT:
-                    car.left_down = event.type == pygame.KEYDOWN
+                    self.car.left_down = event.type == pygame.KEYDOWN
                 elif event.key == pygame.K_RIGHT:
-                    car.right_down = event.type == pygame.KEYDOWN
+                    self.car.right_down = event.type == pygame.KEYDOWN
                 elif event.key == pygame.K_UP:
-                    car.up_down = event.type == pygame.KEYDOWN
+                    self.car.up_down = event.type == pygame.KEYDOWN
                 elif event.key == pygame.K_DOWN:
-                    car.down_down = event.type == pygame.KEYDOWN
+                    self.car.down_down = event.type == pygame.KEYDOWN
             # print("event", event)
         asyncio.get_event_loop().stop()
 
-    async def render(self, screen, car, rcs):
+    async def render(self, screen, rcs):
         current_time = 0
         # overlay is not the nicest but should be most performant way to display frame
         frame_size = (640, 480)
@@ -188,8 +199,8 @@ class PygameRenderer:
             pygame.event.pump()
             last_time, current_time = current_time, time.time()
             await asyncio.sleep(1 / self.FPS - (current_time - last_time))  # tick
-            car.update((current_time - last_time) / 1.0)
-            await rcs.updateControl(car.gear, car.steering, car.throttle, car.braking)
+            self.car.update((current_time - last_time) / 1.0)
+            await rcs.updateControl(self.car.gear, self.car.steering, self.car.throttle, self.car.braking)
             screen.fill(self.black)
             if isinstance(self.latest_frame, VideoFrame):
                 if frame_size[0] != self.latest_frame.width or frame_size[1] != self.latest_frame.height:
@@ -208,12 +219,16 @@ class PygameRenderer:
 
                 #image_rgb = latest_frame.to_rgb()
                 #screen.blit(image_rgb, (0, 0))
-            car.draw(screen)
+            self.car.draw(screen)
             pygame.display.flip()
         asyncio.get_event_loop().stop()
 
     def handle_new_frame(self, frame):
         self.latest_frame = frame
+
+    def handle_new_telemetry(self, telemetry):
+        if self.car:
+            self.car.batVoltage_mV = telemetry["b"]
 
 
 window_width = 960
@@ -235,17 +250,18 @@ def main():
     pygame_event_queue = asyncio.Queue()
 
     pygame.init()
+    pygame.font.init()
 
     pygame.display.set_caption("RCSnail API manual drive demo")
     screen = pygame.display.set_mode((window_width, window_height))
 
     car = Car()
-    renderer = PygameRenderer()
+    renderer = PygameRenderer(car)
 
     pygame_task = loop.run_in_executor(None, renderer.pygame_event_loop, loop, pygame_event_queue)
-    render_task = asyncio.ensure_future(renderer.render(screen, car, rcs))
-    event_task = asyncio.ensure_future(renderer.handle_pygame_events(pygame_event_queue, car))
-    queue_task = asyncio.ensure_future(rcs.enqueue(loop, renderer.handle_new_frame))
+    render_task = asyncio.ensure_future(renderer.render(screen, rcs))
+    event_task = asyncio.ensure_future(renderer.handle_pygame_events(pygame_event_queue))
+    queue_task = asyncio.ensure_future(rcs.enqueue(loop, renderer.handle_new_frame, renderer.handle_new_telemetry))
     try:
         loop.run_forever()
     except KeyboardInterrupt:

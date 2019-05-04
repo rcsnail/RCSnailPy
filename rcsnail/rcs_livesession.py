@@ -232,12 +232,12 @@ class RCSLiveSession(object):
                 if message:
                     octets += len(message)
                     # fp.write(message)
-                    data = data = json.loads(message)
+                    data = json.loads(message)
                     delta = 0
                     if "c" in data:
                         delta = int(time.time() * 1000.0) - data["c"]
                         self.__canSendControl = True
-                    asyncio.ensure_future(self.new_telemetry(message))
+                    asyncio.ensure_future(self.new_telemetry(data))
                     logging.warn("data recv %d %s" % (delta, message))
                     #print('data recv: %d %s' % (delta, message)) 
                 else:
