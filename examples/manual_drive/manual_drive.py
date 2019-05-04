@@ -89,6 +89,24 @@ class Car:
         if not self.up_down and not self.down_down and self.virtual_speed < 0.01:
             self.gear = 0
 
+    async def register_pygame_inputs(self, event_queue):
+        while True:
+            event = await event_queue.get()
+            if event.type == pygame.QUIT:
+                print("event", event)
+                break
+            elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
+                if event.key == pygame.K_LEFT:
+                    self.left_down = event.type == pygame.KEYDOWN
+                elif event.key == pygame.K_RIGHT:
+                    self.right_down = event.type == pygame.KEYDOWN
+                elif event.key == pygame.K_UP:
+                    self.up_down = event.type == pygame.KEYDOWN
+                elif event.key == pygame.K_DOWN:
+                    self.down_down = event.type == pygame.KEYDOWN
+            # print("event", event)
+        asyncio.get_event_loop().stop()
+
 
 class PygameRenderer:
     def __init__(self, screen, car):
@@ -110,24 +128,6 @@ class PygameRenderer:
         while True:
             event = pygame.event.wait()
             asyncio.run_coroutine_threadsafe(event_queue.put(event), loop=loop)
-
-    async def handle_pygame_events(self, event_queue):
-        while True:
-            event = await event_queue.get()
-            if event.type == pygame.QUIT:
-                print("event", event)
-                break
-            elif event.type == pygame.KEYDOWN or event.type == pygame.KEYUP:
-                if event.key == pygame.K_LEFT:
-                    self.car.left_down = event.type == pygame.KEYDOWN
-                elif event.key == pygame.K_RIGHT:
-                    self.car.right_down = event.type == pygame.KEYDOWN
-                elif event.key == pygame.K_UP:
-                    self.car.up_down = event.type == pygame.KEYDOWN
-                elif event.key == pygame.K_DOWN:
-                    self.car.down_down = event.type == pygame.KEYDOWN
-            # print("event", event)
-        asyncio.get_event_loop().stop()
 
     def draw(self):
         # Steering gauge:
@@ -258,7 +258,7 @@ def main():
 
     pygame_task = loop.run_in_executor(None, renderer.pygame_event_loop, loop, pygame_event_queue)
     render_task = asyncio.ensure_future(renderer.render(rcs))
-    event_task = asyncio.ensure_future(renderer.handle_pygame_events(pygame_event_queue))
+    event_task = asyncio.ensure_future(car.register_pygame_inputs(pygame_event_queue))
     queue_task = asyncio.ensure_future(rcs.enqueue(loop, renderer.handle_new_frame, renderer.handle_new_telemetry))
     try:
         loop.run_forever()
