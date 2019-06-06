@@ -179,11 +179,12 @@ class RCSLiveSession(object):
         while True:
             await asyncio.sleep(self.__queueKeepAliveTime)
             headers = {"Authorization": "Bearer " + self.__auth.current_user['idToken']}
-            session = aiohttp.ClientSession(headers = headers)
+            session = aiohttp.ClientSession(headers=headers)
             data = {"keep-alive": True}
-            r = await session.post(self.__queueUpdateUrl, data = data)
+            r = await session.post(self.__queueUpdateUrl, data=data)
             json_body = await r.json()
             if not ('state' in json_body) or (json_body['state'] != 'waiting'):
+                await session.close()
                 break
 
     def close(self):
