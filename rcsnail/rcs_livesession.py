@@ -397,6 +397,4 @@ class RCSLiveSession(object):
             # cleanup
             await recorder.stop()
             await signaling.close()
-            # await pc.close()
-
-
+            await pc.close()
