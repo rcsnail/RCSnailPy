@@ -283,6 +283,7 @@ def main():
         render_task.cancel()
         event_task.cancel()
         pygame.quit()
+        asyncio.ensure_future(rcs.close_client_session())
 
 
 if __name__ == "__main__":
