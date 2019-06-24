@@ -37,6 +37,7 @@ class RCSSignaling:
         self.__message_queue = asyncio.Queue()
         self.__uid = auth.current_user['localId']
         self.__loop = loop
+        self._session = None
 
     def rs_error(self):
         print("error")
@@ -84,13 +85,12 @@ class RCSSignaling:
         self._http = aiohttp.ClientSession(headers = headers)
 
         path = self.__rs_url + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
-        timeout = aiohttp.ClientTimeout(total = 6000)
-        session = aiohttp.ClientSession(timeout = timeout)
-        self.__event_source = sse_client.EventSource(path, 
-            session = session,
-            on_message = self.rs_message, 
-            on_error = self.rs_error
-        )
+        timeout = aiohttp.ClientTimeout(total=6000)
+        self._session = aiohttp.ClientSession(timeout=timeout)
+        self.__event_source = sse_client.EventSource(path,
+                                                     session=self._session,
+                                                     on_message=self.rs_message,
+                                                     on_error=self.rs_error)
         await self.__event_source.connect()
         self.__rs_task = asyncio.ensure_future(self.rs_listen())
 
@@ -102,6 +102,8 @@ class RCSSignaling:
             self.__rs_task.cancel()
         if self._http:
             await self._http.close()
+        if self._session:
+            await self._session.close()
 
     async def receive(self):
         message = await self.__message_queue.get()
