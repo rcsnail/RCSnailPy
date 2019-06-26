@@ -337,13 +337,11 @@ class RCSLiveSession(object):
 
     async def get_remote_session_url(self):
         url = self.__queueUrl + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
-        timeout = aiohttp.ClientTimeout(total = 6000)
-        client_session = aiohttp.ClientSession(timeout = timeout)
+        timeout = aiohttp.ClientTimeout(total=6000)
+        client_session = aiohttp.ClientSession(timeout=timeout)
         rs_url = None
         rs_post_url = None
-        async with sse_client.EventSource(url, 
-            session = client_session
-        ) as event_source:
+        async with sse_client.EventSource(url, session=client_session) as event_source:
             try:
                 async for event in event_source:
                     print(event)
@@ -363,7 +361,9 @@ class RCSLiveSession(object):
                 print(event)
                 self.__taskQueueKeepAlive.cancel()
             except ConnectionError:
-                pass        
+                pass
+
+        await client_session.close()
         return rs_url, rs_post_url
 
     async def run(self, new_frame_callback, new_telemetry_callback=None):
