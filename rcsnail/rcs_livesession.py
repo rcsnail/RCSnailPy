@@ -82,7 +82,7 @@ class RCSSignaling:
             "Authorization": "Bearer " + self.__auth.current_user['idToken'],
             'content-type': 'application/json'
         }
-        self._http = aiohttp.ClientSession(headers = headers)
+        self._http = aiohttp.ClientSession(headers=headers)
 
         path = self.__rs_url + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
         timeout = aiohttp.ClientTimeout(total=6000)
@@ -185,8 +185,8 @@ class RCSLiveSession(object):
             data = {"keep-alive": True}
             r = await session.post(self.__queueUpdateUrl, data=data)
             json_body = await r.json()
+            await session.close()
             if not ('state' in json_body) or (json_body['state'] != 'waiting'):
-                await session.close()
                 break
 
     def close(self):
