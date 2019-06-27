@@ -37,6 +37,7 @@ class RCSSignaling:
         self.__message_queue = asyncio.Queue()
         self.__uid = auth.current_user['localId']
         self.__loop = loop
+        self._session = None
 
     def rs_error(self):
         print("error")
@@ -81,16 +82,15 @@ class RCSSignaling:
             "Authorization": "Bearer " + self.__auth.current_user['idToken'],
             'content-type': 'application/json'
         }
-        self._http = aiohttp.ClientSession(headers = headers)
+        self._http = aiohttp.ClientSession(headers=headers)
 
         path = self.__rs_url + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
-        timeout = aiohttp.ClientTimeout(total = 6000)
-        session = aiohttp.ClientSession(timeout = timeout)
-        self.__event_source = sse_client.EventSource(path, 
-            session = session,
-            on_message = self.rs_message, 
-            on_error = self.rs_error
-        )
+        timeout = aiohttp.ClientTimeout(total=6000)
+        self._session = aiohttp.ClientSession(timeout=timeout)
+        self.__event_source = sse_client.EventSource(path,
+                                                     session=self._session,
+                                                     on_message=self.rs_message,
+                                                     on_error=self.rs_error)
         await self.__event_source.connect()
         self.__rs_task = asyncio.ensure_future(self.rs_listen())
 
@@ -102,6 +102,8 @@ class RCSSignaling:
             self.__rs_task.cancel()
         if self._http:
             await self._http.close()
+        if self._session:
+            await self._session.close()
 
     async def receive(self):
         message = await self.__message_queue.get()
@@ -179,10 +181,11 @@ class RCSLiveSession(object):
         while True:
             await asyncio.sleep(self.__queueKeepAliveTime)
             headers = {"Authorization": "Bearer " + self.__auth.current_user['idToken']}
-            session = aiohttp.ClientSession(headers = headers)
+            session = aiohttp.ClientSession(headers=headers)
             data = {"keep-alive": True}
-            r = await session.post(self.__queueUpdateUrl, data = data)
+            r = await session.post(self.__queueUpdateUrl, data=data)
             json_body = await r.json()
+            await session.close()
             if not ('state' in json_body) or (json_body['state'] != 'waiting'):
                 break
 
@@ -334,13 +337,11 @@ class RCSLiveSession(object):
 
     async def get_remote_session_url(self):
         url = self.__queueUrl + '?' + urllib.parse.urlencode({"auth": self.__auth.current_user['idToken']})
-        timeout = aiohttp.ClientTimeout(total = 6000)
-        client_session = aiohttp.ClientSession(timeout = timeout)
+        timeout = aiohttp.ClientTimeout(total=6000)
+        client_session = aiohttp.ClientSession(timeout=timeout)
         rs_url = None
         rs_post_url = None
-        async with sse_client.EventSource(url, 
-            session = client_session
-        ) as event_source:
+        async with sse_client.EventSource(url, session=client_session) as event_source:
             try:
                 async for event in event_source:
                     print(event)
@@ -360,7 +361,9 @@ class RCSLiveSession(object):
                 print(event)
                 self.__taskQueueKeepAlive.cancel()
             except ConnectionError:
-                pass        
+                pass
+
+        await client_session.close()
         return rs_url, rs_post_url
 
     async def run(self, new_frame_callback, new_telemetry_callback=None):
@@ -397,6 +400,4 @@ class RCSLiveSession(object):
             # cleanup
             await recorder.stop()
             await signaling.close()
-            # await pc.close()
-
-
+            await pc.close()
