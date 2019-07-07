@@ -56,4 +56,4 @@ class MediaRenderer:
             except MediaStreamError:
                 return
             if self.__new_frame_callback:
-                self.__new_frame_callback(frame)
+                await self.__new_frame_callback(frame)

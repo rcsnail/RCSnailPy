@@ -324,7 +324,7 @@ class RCSLiveSession(object):
             # data = bytes(5000)
             # self.__controlChannel.send(data)
 
-    def new_frame(self, frame):
+    async def new_frame(self, frame):
         if self.__frameCount % 100 == 0:
             print('Received new frame', self.__frameCount)
         self.__frameCount = self.__frameCount + 1
