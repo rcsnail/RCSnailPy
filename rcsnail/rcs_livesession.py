@@ -241,8 +241,6 @@ class RCSLiveSession(object):
                         delta = int(time.time() * 1000.0) - data["c"]
                         self.__canSendControl = True
                     asyncio.ensure_future(self.new_telemetry(data))
-                    logging.warn("data recv %d %s" % (delta, message))
-                    #print('data recv: %d %s' % (delta, message)) 
                 else:
                     elapsed = time.time() - start
                     print('received %d bytes in %.1f s (%.3f Mbps)' % (
@@ -324,12 +322,12 @@ class RCSLiveSession(object):
             # data = bytes(5000)
             # self.__controlChannel.send(data)
 
-    async def new_frame(self, frame):
+    def new_frame(self, frame):
         if self.__frameCount % 100 == 0:
             print('Received new frame', self.__frameCount)
         self.__frameCount = self.__frameCount + 1
         if self.__new_frame_callback:
-            await self.__new_frame_callback(frame)
+            self.__new_frame_callback(frame)
 
     async def new_telemetry(self, telemetry):
         if self.__new_telemetry_callback:
