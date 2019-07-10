@@ -329,7 +329,7 @@ class RCSLiveSession(object):
             print('Received new frame', self.__frameCount)
         self.__frameCount = self.__frameCount + 1
         if self.__new_frame_callback:
-            self.__new_frame_callback(frame)
+            await self.__new_frame_callback(frame)
 
     async def new_telemetry(self, telemetry):
         if self.__new_telemetry_callback:
