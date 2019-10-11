@@ -64,7 +64,7 @@ class RCSnail(object):
 
         headers = {"Authorization": "Bearer " + self.__user['idToken']}
         self.client_session = aiohttp.ClientSession(headers=headers)
-        data = {"track":"Spark"}
+        data = {"track":"private"}
         r = await self.client_session.post(DEFAULT_BASE_URL + "queue", data=data)
         json_body = await r.json()
         if 'queueUrl' in json_body:
