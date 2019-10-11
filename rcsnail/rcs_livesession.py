@@ -200,6 +200,8 @@ class RCSLiveSession(object):
                 #, ordered = False
                 #)
 
+            pc.addTransceiver('video', direction='recvonly')
+
             '''
             def send_data():
                 data = "turn left"
@@ -249,20 +251,20 @@ class RCSLiveSession(object):
                         octets, elapsed, octets * 8 / elapsed / 1000000))
 
                     # say goodbye
-                    # await signaling.send(None)
+                    # await signaling.
+                    send(None)
 
         # connect to websocket and join
         await signaling.connect()
 
-        '''
+        
         # send offer
         add_tracks()
         offer = await pc.createOffer()
         await pc.setLocalDescription(offer)
         await signaling.send(pc.localDescription)
         # await signaling.send(offer)
-        print('Offer sent')
-        '''
+        print('Offer sent')        
 
         # consume signaling
         while True:
@@ -310,16 +312,21 @@ class RCSLiveSession(object):
             self.__controlPacket = self.__controlPacket + 1
             self.__canSendControl = False
             # logging.warn("data send %s" % (data))
-            #print('data send %s' % (data)) 
+            # print('data send %s' % (data)) 
             if abs(self.__rto - self.__controlChannel.transport._rto) / self.__controlChannel.transport._rto > 0.1:
                 self.__rto = self.__controlChannel.transport._rto
                 print('rto', self.__rto)
             self.__controlChannel.send(json.dumps(data))
+            # print('data sent') 
+            
             
             if self.__controlChannel.transport._association_state == self.__controlChannel.transport.State.ESTABLISHED:
+                # print('data flushing')
                 await self.__controlChannel.transport._data_channel_flush()
                 await self.__controlChannel.transport._transmit()
-                #pass
+                # print('data flushed')
+                #pass            
+
             # send dummy bytes to force previous package delivery
             # data = bytes(5000)
             # self.__controlChannel.send(data)
