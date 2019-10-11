@@ -205,8 +205,6 @@ class PygameRenderer:
     async def render(self, rcs):
         current_time = 0
         frame_size = (640, 480)
-        ovl = pygame.Overlay(pygame.YV12_OVERLAY, frame_size)
-        ovl.set_location(pygame.Rect(0, 0, self.window_width - 20, self.window_height - 10))
         while True:
             pygame.event.pump()
             last_time, current_time = current_time, time.time()
@@ -217,19 +215,24 @@ class PygameRenderer:
             if isinstance(self.latest_frame, VideoFrame):
                 if frame_size[0] != self.latest_frame.width or frame_size[1] != self.latest_frame.height:
                     frame_size = (self.latest_frame.width, self.latest_frame.height)
-                    ovl = pygame.Overlay(pygame.YV12_OVERLAY, frame_size) # (320, 240))
-                    ovl.set_location(pygame.Rect(0, 0, self.window_width - 20, self.window_height - 10))
-                ovl.display((self.latest_frame.planes[0], self.latest_frame.planes[1], self.latest_frame.planes[2]))
 
                 # check different frame formats https://docs.mikeboers.com/pyav/develop/api/video.html
                 # PIL or Pillow must be installed:
-                #image_pil = latest_frame.to_image()
-                #screen.blit(image_pil, (0, 0))
+                # image_pil = self.latest_frame.to_image()
+                # self.screen.blit(image_pil, (0, 0))
                 # Numpy must be installed:
-                #image_to_ndarray = latest_frame.to_ndarray()
+                # image_to_ndarray = self.latest_frame.to_ndarray()
 
-                #image_rgb = latest_frame.to_rgb()
-                #screen.blit(image_rgb, (0, 0))
+                image_rgb = self.latest_frame.to_rgb()
+                image_to_ndarray = image_rgb.to_ndarray()
+                surface = pygame.surfarray.make_surface(image_to_ndarray.swapaxes(0,1))
+                height = self.window_height - 10
+                width = height * self.latest_frame.width // self.latest_frame.height
+                x = (self.window_width - 20 - width) // 2
+                y = 0
+                scaled_frame = pygame.transform.scale(surface, (width, height))
+                self.screen.blit(scaled_frame, (x, y))
+            
             self.draw()
             pygame.display.flip()
         asyncio.get_event_loop().stop()
