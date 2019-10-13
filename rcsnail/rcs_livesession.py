@@ -30,10 +30,11 @@ ROOT = os.path.dirname(__file__)
 PHOTO_PATH = os.path.join(ROOT, 'photo.jpg')
 
 class RCSSignaling:
-    def __init__(self, auth, rs_url, post_url, loop):
+    def __init__(self, auth, rs_url, post_url, is_offerer, loop):
         self.__auth = auth
         self.__rs_url = rs_url
         self.__post_url = post_url
+        self.__is_offerer = is_offerer
         self.__message_queue = asyncio.Queue()
         self.__uid = auth.current_user['localId']
         self.__loop = loop
@@ -41,6 +42,9 @@ class RCSSignaling:
 
     def rs_error(self):
         print("error")
+
+    def is_offerer(self):
+        return self.__is_offerer
 
     def handle_message(self, key, data):
         if key in self.__received_messages:
@@ -200,7 +204,8 @@ class RCSLiveSession(object):
                 #, ordered = False
                 #)
 
-            pc.addTransceiver('video', direction='recvonly')
+            if signaling.is_offerer():
+                pc.addTransceiver('video', direction='recvonly')
 
             '''
             def send_data():
@@ -259,12 +264,13 @@ class RCSLiveSession(object):
 
         
         # send offer
-        add_tracks()
-        offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        await signaling.send(pc.localDescription)
-        # await signaling.send(offer)
-        print('Offer sent')        
+        if signaling.is_offerer():
+            add_tracks()
+            offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            await signaling.send(pc.localDescription)
+            # await signaling.send(offer)
+            print('Offer sent')        
 
         # consume signaling
         while True:
@@ -348,6 +354,7 @@ class RCSLiveSession(object):
         client_session = aiohttp.ClientSession(timeout=timeout)
         rs_url = None
         rs_post_url = None
+        is_offerer = True
         async with sse_client.EventSource(url, session=client_session) as event_source:
             try:
                 async for event in event_source:
@@ -361,6 +368,8 @@ class RCSLiveSession(object):
                                 rs_url = data_data['rsUrl']
                             if 'rsPostUrl' in data_data:
                                 rs_post_url = data_data['rsPostUrl']
+                            if 'createAnswer' in data_data:
+                                is_offerer = not data_data['createAnswer']
                         elif data_path == '/rsUrl':
                             rs_url = data_data
                     if rs_url != None:
@@ -371,19 +380,19 @@ class RCSLiveSession(object):
                 pass
 
         await client_session.close()
-        return rs_url, rs_post_url
+        return rs_url, rs_post_url, is_offerer
 
     async def run(self, new_frame_callback, new_telemetry_callback=None):
         self.__new_frame_callback = new_frame_callback
         self.__new_telemetry_callback = new_telemetry_callback
 
         # wait for queue to return remote session url
-        rs_url, rs_post_url = await self.get_remote_session_url()
+        rs_url, rs_post_url, is_offerer = await self.get_remote_session_url()
         if rs_url == None:
             return
 
         # create signaling and peer connection
-        signaling = RCSSignaling(self.__auth, rs_url, rs_post_url, self.__loop)
+        signaling = RCSSignaling(self.__auth, rs_url, rs_post_url, is_offerer, self.__loop)
         pc = RTCPeerConnection()
 
         # create media source
