@@ -248,8 +248,7 @@ class RCSLiveSession(object):
                         delta = int(time.time() * 1000.0) - data["c"]
                         self.__canSendControl = True
                     asyncio.ensure_future(self.new_telemetry(data))
-                    logging.warn("data recv %d %s" % (delta, message))
-                    #print('data recv: %d %s' % (delta, message)) 
+                    #logging.warn("data recv %d %s" % (delta, message))
                 else:
                     elapsed = time.time() - start
                     print('received %d bytes in %.1f s (%.3f Mbps)' % (
