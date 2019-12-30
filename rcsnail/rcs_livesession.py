@@ -286,6 +286,7 @@ class RCSLiveSession(object):
                     print("Sent answer.")
                 await recorder.start()
             elif isinstance(obj, RTCIceCandidate):
+                print("I am RTCIce candidate")
                 pc.addIceCandidate(obj)
             else:
                 print('Exiting')
