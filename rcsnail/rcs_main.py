@@ -56,7 +56,7 @@ class RCSnail(object):
         # Get a reference to the database service
         self.__db = self.__firebase_app.database()
 
-    async def enqueue(self, loop, new_frame_callback, new_telemetry_callback=None) -> None:
+    async def enqueue(self, loop, new_frame_callback, new_telemetry_callback=None, track="private", car="") -> None:
         """
         Adding client to the queue to wait for the car becoming available. Returns live session object.
         """
@@ -64,7 +64,7 @@ class RCSnail(object):
 
         headers = {"Authorization": "Bearer " + self.__user['idToken']}
         self.client_session = aiohttp.ClientSession(headers=headers)
-        data = {"track":"private"}
+        data = {"track": track, "car": car}
         r = await self.client_session.post(DEFAULT_BASE_URL + "queue", data=data)
         json_body = await r.json()
         if 'queueUrl' in json_body:
