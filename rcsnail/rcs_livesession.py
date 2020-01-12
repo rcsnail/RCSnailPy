@@ -275,17 +275,14 @@ class RCSLiveSession(object):
             obj = await signaling.receive()
 
             if isinstance(obj, RTCSessionDescription):
-                print("Remote description type: {}".format(obj.type))
                 await pc.setRemoteDescription(obj)
                 if obj.type == "offer":
                     add_tracks()
                     answer = await pc.createAnswer()
                     await pc.setLocalDescription(answer)
                     await signaling.send(pc.localDescription)
-                    print("Sent answer.")
                 await recorder.start()
             elif isinstance(obj, RTCIceCandidate):
-                print("I am RTCIce candidate")
                 pc.addIceCandidate(obj)
             else:
                 print('Exiting')
