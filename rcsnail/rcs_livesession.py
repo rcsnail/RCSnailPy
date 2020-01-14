@@ -64,11 +64,10 @@ class RCSSignaling:
             data_path = data['path']
             data_data = data['data']
             if data_path == '/':
-                if data_data != None and 'messages' in data_data:
+                if data_data != None:
                     # parse existing messages
-                    data_data_messages = data_data['messages']
-                    for message in data_data_messages:
-                        self.handle_message('/' + message, data_data_messages[message])
+                    for data_key in data_data:
+                        self.handle_message('/' + data_key, data_data[data_key])
             else:
                 # data_path for new message '/-LaP0ffzKHctPD1uQs7M'
                 # data_data['type']
