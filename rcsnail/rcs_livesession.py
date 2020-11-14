@@ -197,14 +197,45 @@ class RCSLiveSession(object):
 
     async def run_session(self, pc, player, recorder, signaling):
         def add_tracks():
-            self.__controlChannel = pc.createDataChannel('control')
+            channel = pc.createDataChannel('control')
+            self.__controlChannel = channel
                 #, maxPacketLifeTime = 1  # this seems better
                 ##, maxRetransmits = 0 
                 #, ordered = False
                 #)
+            octets = 0
+            
+            @channel.on('message')
+            async def on_message(message):
+                nonlocal octets
+
+                if message:
+                    octets += len(message)
+                    # fp.write(message)
+                    data = json.loads(message)
+                    delta = 0
+                    if "c" in data:
+                        delta = int(time.time() * 1000.0) - data["c"]
+                        self.__canSendControl = True
+                    asyncio.ensure_future(self.new_telemetry(data))
+                    #logging.warn("data recv %d %s" % (delta, message))
+                else:
+                    elapsed = time.time() - start
+                    print('received %d bytes in %.1f s (%.3f Mbps)' % (
+                        octets, elapsed, octets * 8 / elapsed / 1000000))
+
+                    # say goodbye
+                    # await signaling.
+                    send(None)
 
             if signaling.is_offerer():
-                pc.addTransceiver('video', direction='recvonly')
+                tranceiver = pc.addTransceiver('video', direction='recvonly')
+                # workaround for ICE connection issue
+                tranceiver._transport.transport.iceGatherer._connection.local_username = \
+                    self.__controlChannel.transport.transport.transport.iceGatherer._connection.local_username
+                tranceiver._transport.transport.iceGatherer._connection.local_password = \
+                    self.__controlChannel.transport.transport.transport.iceGatherer._connection.local_password
+                print('video recvonly tranceiver created') 
 
             '''
             def send_data():
@@ -283,7 +314,7 @@ class RCSLiveSession(object):
                     await signaling.send(pc.localDescription)
                 await recorder.start()
             elif isinstance(obj, RTCIceCandidate):
-                pc.addIceCandidate(obj)
+                await pc.addIceCandidate(obj)
             else:
                 print('Exiting')
                 break
@@ -314,7 +345,7 @@ class RCSLiveSession(object):
                 #,"dummy": " " * 1000
             }
             self.__controlPacket = self.__controlPacket + 1
-            self.__canSendControl = False
+            self.__canSendControl = True
             # logging.warn("data send %s" % (data))
             # print('data send %s' % (data)) 
             if abs(self.__rto - self.__controlChannel.transport._rto) / self.__controlChannel.transport._rto > 0.1:

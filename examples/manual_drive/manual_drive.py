@@ -253,6 +253,8 @@ def main():
     logging.basicConfig(level=logging.WARNING, format='%(asctime)s %(message)s')
     username = os.getenv('RCS_USERNAME', '')
     password = os.getenv('RCS_PASSWORD', '')
+    track = os.getenv('RCS_TRACK', '')
+    carId = os.getenv('RCS_CAR', '')
     if username == '':
         username = input('Username: ')
     if password == '':
@@ -260,6 +262,10 @@ def main():
     rcs = RCSnail()
     rcs.sign_in_with_email_and_password(username, password)
 
+    if track == '':
+        track = input('Track: ')
+    if carId == '':
+        carId = input('Car: ')
     loop = asyncio.get_event_loop()
     pygame_event_queue = asyncio.Queue()
 
@@ -275,7 +281,7 @@ def main():
     pygame_task = loop.run_in_executor(None, renderer.pygame_event_loop, loop, pygame_event_queue)
     render_task = asyncio.ensure_future(renderer.render(rcs))
     event_task = asyncio.ensure_future(renderer.register_pygame_events(pygame_event_queue))
-    queue_task = asyncio.ensure_future(rcs.enqueue(loop, renderer.handle_new_frame, renderer.handle_new_telemetry))
+    queue_task = asyncio.ensure_future(rcs.enqueue(loop, renderer.handle_new_frame, renderer.handle_new_telemetry, track, carId))
     try:
         loop.run_forever()
     except KeyboardInterrupt:
