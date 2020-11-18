@@ -15,7 +15,7 @@ Python wrapper for RCSnail API
 
 ## Install dependencies
     $ sudo apt install libavdevice-dev libavfilter-dev libopus-dev libvpx-dev pkg-config python3-dev python3-opencv
-    $ pip install wheel aiohttp aiohttp-sse-client aiortc opencv-python websockets FirebaseData pyrebase
+    $ pip install wheel aiohttp aiohttp-sse-client aiortc opencv-python websockets FirebaseData pirebase
 
 ## Module Development
     $ python setup.py develop
